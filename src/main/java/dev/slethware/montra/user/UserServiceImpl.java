@@ -1,7 +1,10 @@
 package dev.slethware.montra.user;
 
+import dev.slethware.montra.email.EmailService;
 import dev.slethware.montra.shared.exception.BadRequestException;
 import dev.slethware.montra.shared.exception.ResourceNotFoundException;
+import dev.slethware.montra.user.dto.CompleteAccountSetupRequest;
+import dev.slethware.montra.user.dto.UserProfileUpdateRequest;
 import dev.slethware.montra.user.dto.UserRegistrationRequest;
 import dev.slethware.montra.user.dto.UserResponse;
 import dev.slethware.montra.user.model.Authority;
@@ -30,6 +33,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final AuthorityRepository authorityRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     @Override
     public User createUser(UserRegistrationRequest request) {
@@ -137,8 +141,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void setupUserPin(String email, String pin) {
-        User user = getUserByEmail(email);
+    public void setupUserPin(User user, String pin) {
+        log.info("Setting up PIN for user: {}", user.getEmail());
 
         if (!user.isEmailVerified()) {
             throw new BadRequestException("Email must be verified before setting up PIN");
@@ -148,11 +152,15 @@ public class UserServiceImpl implements UserService {
         user.setupPin(hashedPin);
 
         userRepository.save(user);
-        log.info("PIN setup completed for user: {}", email);
+
+        // Send PIN setup confirmation email
+        emailService.sendPinSetupConfirmation(user.getEmail(), user.getFirstName());
+
+        log.info("PIN setup completed for user: {}", user.getEmail());
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public boolean validateUserPin(String email, String pin) {
         User user = getUserByEmail(email);
 
@@ -168,8 +176,10 @@ public class UserServiceImpl implements UserService {
 
         if (isValid) {
             user.recordSuccessfulPinAttempt();
+            log.info("PIN validation successful for user: {}", email);
         } else {
             user.recordFailedPinAttempt();
+            log.warn("PIN validation failed for user: {}. Attempts: {}", email, user.getPinAttempts());
         }
 
         userRepository.save(user);
@@ -177,18 +187,31 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void completeUserAccountSetup(String email, String username) {
-        User user = getUserByEmail(email);
+    public void completeUserAccountSetup(User user, CompleteAccountSetupRequest request) {
+        log.info("Completing account setup for user: {}", user.getEmail());
 
-        if (userRepository.existsByUsername(username)) {
-            throw new BadRequestException("Username already exists");
+        if (request.getUsername() != null && !request.getUsername().trim().isEmpty()) {
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new BadRequestException("Username already exists");
+            }
+            user.setUsername(request.getUsername());
         }
 
-        user.setUsername(username);
-        user.completeAccountSetup();
+        if (request.getDateOfBirth() != null) {
+            user.setDateOfBirth(request.getDateOfBirth());
+        }
 
+        if (request.getProfilePictureUrl() != null) {
+            user.setProfilePictureUrl(request.getProfilePictureUrl());
+        }
+
+        user.completeAccountSetup();
         userRepository.save(user);
-        log.info("Account setup completed for user: {}", email);
+
+        // Send account setup complete email
+        emailService.sendAccountSetupComplete(user.getEmail(), user.getFirstName());
+
+        log.info("Account setup completed for user: {}", user.getEmail());
     }
 
     @Override

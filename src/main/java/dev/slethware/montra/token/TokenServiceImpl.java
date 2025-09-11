@@ -120,7 +120,7 @@ public class TokenServiceImpl implements TokenService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public Token validateAndGetRefreshToken(String tokenValue) {
         log.info("Validating refresh token");
 
@@ -176,15 +176,7 @@ public class TokenServiceImpl implements TokenService {
     public void cleanupExpiredTokens() {
         log.info("Cleaning up expired tokens");
 
-        int deletedCount = tokenRepository.findAll().stream()
-                .mapToInt(token -> {
-                    if (token.isExpired()) {
-                        tokenRepository.delete(token);
-                        return 1;
-                    }
-                    return 0;
-                })
-                .sum();
+        int deletedCount = tokenRepository.deleteExpiredTokens(LocalDateTime.now());
 
         log.info("Cleaned up {} expired tokens", deletedCount);
     }

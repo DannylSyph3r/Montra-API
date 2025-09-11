@@ -33,8 +33,7 @@ public class Token extends Auditable {
     private LocalDateTime expiryDate;
 
     private boolean used = false;
-
-    private boolean revoked;
+    private boolean revoked = false;
     private String deviceInfo;
     private String ipAddress;
 
@@ -49,7 +48,15 @@ public class Token extends Auditable {
         return !used && !isExpired();
     }
 
+    public boolean isRefreshToken() {
+        return this.tokenType == TokenType.REFRESH_TOKEN;
+    }
+
     public void markAsUsed() {
         this.used = true;
+    }
+
+    public void revoke() {
+        this.revoked = true;
     }
 }

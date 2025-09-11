@@ -12,7 +12,7 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProfileUpdateRequest {
+public class UserProfileUpdateRequest {
 
     @Email(message = "Email should be valid")
     private String email;

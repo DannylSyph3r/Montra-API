@@ -25,11 +25,18 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
     @Query("SELECT t FROM Token t WHERE t.user = :user AND t.tokenType = :tokenType AND t.used = false AND t.expiryDate > :now")
     List<Token> findValidTokensByUserAndType(@Param("user") User user, @Param("tokenType") TokenType tokenType, @Param("now") LocalDateTime now);
 
+    @Query("SELECT t FROM Token t WHERE t.user = :user AND t.tokenType = 'REFRESH_TOKEN' AND t.revoked = false AND t.expiryDate > :now")
+    List<Token> findActiveRefreshTokensByUser(@Param("user") User user, @Param("now") LocalDateTime now);
+
     @Modifying
     @Query("UPDATE Token t SET t.used = true WHERE t.user = :user AND t.tokenType = :tokenType")
     void markAllTokensAsUsed(@Param("user") User user, @Param("tokenType") TokenType tokenType);
 
     @Modifying
     @Query("DELETE FROM Token t WHERE t.expiryDate < :now")
-    void deleteExpiredTokens(@Param("now") LocalDateTime now);
+    int deleteExpiredTokens(@Param("now") LocalDateTime now);
+
+    // Check if token is a refresh token
+    @Query("SELECT CASE WHEN t.tokenType = 'REFRESH_TOKEN' THEN true ELSE false END FROM Token t WHERE t.token = :token")
+    boolean isRefreshToken(@Param("token") String token);
 }

@@ -6,16 +6,21 @@ import dev.slethware.montra.user.dto.UserRegistrationRequest;
 
 public interface AuthenticationService {
 
+    // Registration
     ApiResponse<Void> registerUser(UserRegistrationRequest request);
 
-    ApiResponse<AuthenticationResponse> loginWithPassword(LoginRequest request);
+    // Unified login endpoint - handles both password and PIN
+    ApiResponse<AuthenticationResponse> login(LoginRequest request);
 
-    ApiResponse<AuthenticationResponse> refreshToken(dev.slethware.montra.authentication.dto.TokenRefreshRequest request);
+    // Token management
+    ApiResponse<AuthenticationResponse> refreshToken(TokenRefreshRequest request);
 
+    // Email verification
     ApiResponse<Void> verifyEmail(EmailVerificationRequest request);
 
     ApiResponse<Void> resendEmailVerification(String email);
 
+    // Logout
     ApiResponse<Void> logout(String refreshToken);
 
     ApiResponse<Void> logoutAllDevices(String email);

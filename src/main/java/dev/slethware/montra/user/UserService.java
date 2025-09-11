@@ -1,6 +1,6 @@
 package dev.slethware.montra.user;
 
-import dev.slethware.montra.user.dto.ProfileUpdateRequest;
+import dev.slethware.montra.user.dto.UserProfileUpdateRequest;
 import dev.slethware.montra.user.dto.UserRegistrationRequest;
 import dev.slethware.montra.user.dto.UserResponse;
 import dev.slethware.montra.user.dto.CompleteAccountSetupRequest;
@@ -25,11 +25,11 @@ public interface UserService {
 
     User updateUserProfile(UserProfileUpdateRequest request);
 
-    void setupUserPin(String email, String pin);
+    void setupUserPin(User user, String pin);
 
     boolean validateUserPin(String email, String pin);
 
-    void completeUserAccountSetup(String email, String username);
+    void completeUserAccountSetup(User user, CompleteAccountSetupRequest request);
 
     boolean doesUserExist(String email);
 

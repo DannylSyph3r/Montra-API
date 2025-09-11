@@ -1,4 +1,4 @@
-package dev.slethware.montra.authentication.dto;
+package dev.slethware.montra.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
