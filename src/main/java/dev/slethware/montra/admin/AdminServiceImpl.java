@@ -20,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -103,7 +105,7 @@ public class AdminServiceImpl implements AdminService {
                 .email(invitation.getEmail())
                 .firstName(invitation.getFirstName())
                 .lastName(invitation.getLastName())
-                .passwordHash(invitation.getTempPassword()) // Will be changed on first login
+                .passwordHash(invitation.getTempPassword())
                 .role(UserRole.ADMIN)
                 .emailVerified(true)
                 .enabled(true)
@@ -243,6 +245,11 @@ public class AdminServiceImpl implements AdminService {
             invitedBy = invitation.getInvitedBy().getFullName();
         }
 
+        // Get authorities safely to avoid generic type conflicts
+        List<String> authorityNames = getAdminAuthorities(admin).stream()
+                .map(Authority::getName)
+                .collect(Collectors.toList());
+
         return AdminResponse.builder()
                 .id(admin.getId())
                 .email(admin.getEmail())
@@ -251,12 +258,26 @@ public class AdminServiceImpl implements AdminService {
                 .role(admin.getRole())
                 .emailVerified(admin.isEmailVerified())
                 .enabled(admin.isEnabled())
-                .authorities(admin.getAuthorities().stream()
-                        .map(Authority::getName)
-                        .collect(Collectors.toList()))
+                .authorities(authorityNames)
                 .createdOn(admin.getCreatedOn())
                 .invitedBy(invitedBy)
                 .build();
+    }
+
+    private List<Authority> getAdminAuthorities(User admin) {
+        // Access the authorities field directly to avoid UserDetails generic issues
+        if (admin.getAuthorities() == null) {
+            return new ArrayList<>();
+        }
+
+        // Since Authority implements GrantedAuthority, we can safely cast
+        List<Authority> authorities = new ArrayList<>();
+        for (GrantedAuthority authority : admin.getAuthorities()) {
+            if (authority instanceof Authority) {
+                authorities.add((Authority) authority);
+            }
+        }
+        return authorities;
     }
 
     private String generateTempPassword() {

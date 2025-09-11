@@ -16,13 +16,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -75,6 +78,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserResponse(User user) {
+        // Get authorities as List<Authority> to avoid generic issues
+        List<String> authorityNames = getUserAuthorities(user).stream()
+                .map(Authority::getName)
+                .collect(Collectors.toList());
+
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -88,9 +96,7 @@ public class UserServiceImpl implements UserService {
                 .pinSet(user.isPinSet())
                 .dateOfBirth(user.getDateOfBirth())
                 .profilePictureUrl(user.getProfilePictureUrl())
-                .authorities(user.getAuthorities().stream()
-                        .map(Authority::getName)
-                        .toList())
+                .authorities(authorityNames)
                 .createdOn(user.getCreatedOn())
                 .build();
     }
@@ -98,6 +104,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> getUserDetails(User user) {
+        // Get authorities as List<Authority>
+        List<String> authorityNames = getUserAuthorities(user).stream()
+                .map(Authority::getName)
+                .collect(Collectors.toList());
+
         Map<String, Object> details = new HashMap<>();
         details.put("id", user.getId());
         details.put("email", user.getEmail());
@@ -112,9 +123,7 @@ public class UserServiceImpl implements UserService {
         details.put("pinSet", user.isPinSet());
         details.put("dateOfBirth", user.getDateOfBirth());
         details.put("profilePictureUrl", user.getProfilePictureUrl());
-        details.put("authorities", user.getAuthorities().stream()
-                .map(Authority::getName)
-                .toList());
+        details.put("authorities", authorityNames);
         return details;
     }
 
@@ -255,8 +264,14 @@ public class UserServiceImpl implements UserService {
             throw new BadRequestException("One or more authorities not found");
         }
 
+        // Get current authorities as List<Authority>
+        List<Authority> currentAuthorities = new ArrayList<>(getUserAuthorities(user));
+
         // Add new authorities to existing ones
-        user.getAuthorities().addAll(authorities);
+        currentAuthorities.addAll(authorities);
+
+        // Set the updated authorities list
+        user.setAuthorities(currentAuthorities);
         userRepository.save(user);
 
         log.info("Authorities {} assigned to user: {}", authorityNames, email);
@@ -267,9 +282,23 @@ public class UserServiceImpl implements UserService {
         User user = getUserByEmail(email);
         List<Authority> authoritiesToRemove = authorityRepository.findAllByNameIn(authorityNames);
 
-        user.getAuthorities().removeAll(authoritiesToRemove);
+        // Get current authorities as List<Authority>
+        List<Authority> currentAuthorities = new ArrayList<>(getUserAuthorities(user));
+
+        // Remove specified authorities
+        currentAuthorities.removeAll(authoritiesToRemove);
+
+        // Set the updated authorities list
+        user.setAuthorities(currentAuthorities);
         userRepository.save(user);
 
         log.info("Authorities {} removed from user: {}", authorityNames, email);
+    }
+
+    private List<Authority> getUserAuthorities(User user) {
+        // Cast the collection to List<Authority> since we know the implementation
+        return user.getAuthorities().stream()
+                .map(authority -> (Authority) authority)
+                .collect(Collectors.toList());
     }
 }
