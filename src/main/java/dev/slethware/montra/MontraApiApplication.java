@@ -13,42 +13,38 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 import static org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO;
 
 @OpenAPIDefinition(
 		info = @Info(
 				contact = @Contact(
-						name = "Akinola Daniel",
-						email = "slethware@gmail.com",
-						url = "https://www.slethware.dev"
+						name = "Slethware Development Team",
+						email = "dev@slethware.com",
+						url = "https://www.slethware.com"
 				),
-				description = "OpenApi documentation for Montra API",
+				description = "OpenAPI documentation for Montra Financial Transaction Management API",
 				title = "Montra API Documentation",
 				version = "1.0",
 				license = @License(
-						name = "Licence name",
-						url = "https://example.com"
+						name = "MIT License",
+						url = "https://opensource.org/licenses/MIT"
 				),
 				termsOfService = "Terms of service"
 		),
 		security = {
-				@SecurityRequirement(
-						name = "bearerAuth"
-				)
+				@SecurityRequirement(name = "bearerAuth")
 		}
 )
 @SecurityScheme(
 		name = "bearerAuth",
-		description = "JWT auth description",
+		description = "JWT authentication scheme",
 		scheme = "bearer",
 		type = SecuritySchemeType.HTTP,
 		bearerFormat = "JWT",
 		in = SecuritySchemeIn.HEADER
 )
 @EnableAsync
-@EnableScheduling
 @EnableJpaAuditing(auditorAwareRef = "auditorAware", dateTimeProviderRef = "auditingDateTimeProvider")
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
 @SpringBootApplication
