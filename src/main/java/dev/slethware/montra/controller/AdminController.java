@@ -3,7 +3,7 @@ package dev.slethware.montra.controller;
 import dev.slethware.montra.admin.AdminService;
 import dev.slethware.montra.admin.dto.AdminInvitationRequest;
 import dev.slethware.montra.admin.dto.AdminResponse;
-import dev.slethware.montra.shared.response.ApiResponse;
+import dev.slethware.montra.shared.ApiResponseWrapper;
 import dev.slethware.montra.shared.util.ApiResponseUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,30 +23,30 @@ public class AdminController {
 
     @PostMapping("/invite")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> inviteAdmin(@Valid @RequestBody AdminInvitationRequest request) {
-        ApiResponse<Void> response = adminService.inviteAdmin(request);
+    public ResponseEntity<ApiResponseWrapper<Void>> inviteAdmin(@Valid @RequestBody AdminInvitationRequest request) {
+        ApiResponseWrapper<Void> response = adminService.inviteAdmin(request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/accept-invitation")
-    public ResponseEntity<ApiResponse<Void>> acceptInvitation(
+    public ResponseEntity<ApiResponseWrapper<Void>> acceptInvitation(
             @RequestParam String email,
             @RequestParam String tempPassword) {
 
-        ApiResponse<Void> response = adminService.acceptAdminInvitation(email, tempPassword);
+        ApiResponseWrapper<Void> response = adminService.acceptAdminInvitation(email, tempPassword);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/list")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<AdminResponse>>> getAllAdmins() {
+    public ResponseEntity<ApiResponseWrapper<List<AdminResponse>>> getAllAdmins() {
         List<AdminResponse> admins = adminService.getAllAdmins();
         return ResponseEntity.ok(ApiResponseUtil.successful("Admins retrieved successfully", admins));
     }
 
     @GetMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Page<AdminResponse>>> getAdminsPaginated(
+    public ResponseEntity<ApiResponseWrapper<Page<AdminResponse>>> getAdminsPaginated(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
@@ -56,32 +56,32 @@ public class AdminController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<AdminResponse>> getAdminById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponseWrapper<AdminResponse>> getAdminById(@PathVariable Long id) {
         AdminResponse admin = adminService.getAdminById(id);
         return ResponseEntity.ok(ApiResponseUtil.successful("Admin retrieved successfully", admin));
     }
 
     @PutMapping("/{email}/authorities")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> updateAdminAuthorities(
+    public ResponseEntity<ApiResponseWrapper<Void>> updateAdminAuthorities(
             @PathVariable String email,
             @RequestBody List<String> authorities) {
 
-        ApiResponse<Void> response = adminService.updateAdminAuthorities(email, authorities);
+        ApiResponseWrapper<Void> response = adminService.updateAdminAuthorities(email, authorities);
         return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{email}/deactivate")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> deactivateAdmin(@PathVariable String email) {
-        ApiResponse<Void> response = adminService.deactivateAdmin(email);
+    public ResponseEntity<ApiResponseWrapper<Void>> deactivateAdmin(@PathVariable String email) {
+        ApiResponseWrapper<Void> response = adminService.deactivateAdmin(email);
         return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{email}/reactivate")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> reactivateAdmin(@PathVariable String email) {
-        ApiResponse<Void> response = adminService.reactivateAdmin(email);
+    public ResponseEntity<ApiResponseWrapper<Void>> reactivateAdmin(@PathVariable String email) {
+        ApiResponseWrapper<Void> response = adminService.reactivateAdmin(email);
         return ResponseEntity.ok(response);
     }
 }

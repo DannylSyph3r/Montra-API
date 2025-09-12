@@ -1,6 +1,6 @@
 package dev.slethware.montra.shared.exception;
 
-import dev.slethware.montra.shared.response.ApiResponse;
+import dev.slethware.montra.shared.ApiResponseWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -32,33 +32,33 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     // Existing exception handlers
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ApiResponse<?>> badRequestExceptionHandler(BadRequestException e) {
+    public ResponseEntity<ApiResponseWrapper<?>> badRequestExceptionHandler(BadRequestException e) {
         log.error(e.getMessage(), e);
-        return new ResponseEntity<>(new ApiResponse<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
+        return new ResponseEntity<>(new ApiResponseWrapper<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
     }
 
     @ExceptionHandler(UnauthorizedAccessException.class)
-    public ResponseEntity<ApiResponse<?>> unauthorizedRequestExceptionHandler(UnauthorizedAccessException e) {
+    public ResponseEntity<ApiResponseWrapper<?>> unauthorizedRequestExceptionHandler(UnauthorizedAccessException e) {
         log.error(e.getMessage(), e);
-        return new ResponseEntity<>(new ApiResponse<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
+        return new ResponseEntity<>(new ApiResponseWrapper<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
     }
 
     @ExceptionHandler(InternalServerException.class)
-    public ResponseEntity<ApiResponse<?>> internalServerExceptionHandler(InternalServerException e) {
+    public ResponseEntity<ApiResponseWrapper<?>> internalServerExceptionHandler(InternalServerException e) {
         log.error(e.getMessage(), e);
-        return new ResponseEntity<>(new ApiResponse<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
+        return new ResponseEntity<>(new ApiResponseWrapper<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<?>> resourceNotFoundExceptionHandler(ResourceNotFoundException e) {
+    public ResponseEntity<ApiResponseWrapper<?>> resourceNotFoundExceptionHandler(ResourceNotFoundException e) {
         log.error(e.getMessage(), e);
-        return new ResponseEntity<>(new ApiResponse<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
+        return new ResponseEntity<>(new ApiResponseWrapper<>(e.getMessage(), e.getStatus().value(), false, null), e.getStatus());
     }
 
     @ExceptionHandler(AuthorizationDeniedException.class)
-    public ResponseEntity<ApiResponse<?>> authorizationDeniedExceptionHandler(AuthorizationDeniedException e) {
+    public ResponseEntity<ApiResponseWrapper<?>> authorizationDeniedExceptionHandler(AuthorizationDeniedException e) {
         log.error(e.getMessage(), e);
-        return new ResponseEntity<>(new ApiResponse<>(e.getMessage(), 403, false, null), HttpStatus.FORBIDDEN);
+        return new ResponseEntity<>(new ApiResponseWrapper<>(e.getMessage(), 403, false, null), HttpStatus.FORBIDDEN);
     }
 
     // New: Max upload size handler
@@ -84,7 +84,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         data.put("uploadedFileSize", actualSize);
         data.put("maxAllowedSize", maxFileSize);
 
-        var response = ApiResponse.builder()
+        var response = ApiResponseWrapper.builder()
                 .message("File upload error: Maximum upload size exceeded")
                 .statusCode(HttpStatus.PAYLOAD_TOO_LARGE.value())
                 .isSuccessful(false)
@@ -103,7 +103,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             @NonNull WebRequest request) {
 
         log.error(ex.getMessage(), ex);
-        var response = ApiResponse.builder()
+        var response = ApiResponseWrapper.builder()
                 .message(ex.getMessage())
                 .statusCode(status.value())
                 .isSuccessful(false)
@@ -127,7 +127,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             data.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
 
-        var response = ApiResponse.builder()
+        var response = ApiResponseWrapper.builder()
                 .data(data)
                 .message("Invalid Arguments")
                 .statusCode(status.value())
@@ -145,7 +145,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             @NonNull WebRequest request) {
 
         log.error(ex.getMessage(), ex);
-        var response = ApiResponse.builder()
+        var response = ApiResponseWrapper.builder()
                 .message(ex.getMessage())
                 .statusCode(statusCode.value())
                 .isSuccessful(false)
@@ -156,7 +156,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleUnpredictableException(Exception ex) {
         log.error(ex.getMessage(), ex);
-        var response = ApiResponse.builder()
+        var response = ApiResponseWrapper.builder()
                 .message(ex.getMessage())
                 .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .isSuccessful(false)

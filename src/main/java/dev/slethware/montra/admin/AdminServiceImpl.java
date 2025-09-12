@@ -6,7 +6,7 @@ import dev.slethware.montra.admin.model.AdminInvitation;
 import dev.slethware.montra.email.EmailService;
 import dev.slethware.montra.shared.exception.BadRequestException;
 import dev.slethware.montra.shared.exception.ResourceNotFoundException;
-import dev.slethware.montra.shared.response.ApiResponse;
+import dev.slethware.montra.shared.ApiResponseWrapper;
 import dev.slethware.montra.shared.util.ApiResponseUtil;
 import dev.slethware.montra.user.AuthorityRepository;
 import dev.slethware.montra.user.UserRepository;
@@ -47,7 +47,7 @@ public class AdminServiceImpl implements AdminService {
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
-    public ApiResponse<Void> inviteAdmin(AdminInvitationRequest request) {
+    public ApiResponseWrapper<Void> inviteAdmin(AdminInvitationRequest request) {
         log.info("Inviting admin with email: {}", request.getEmail());
 
         // Check if user already exists
@@ -86,7 +86,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ApiResponse<Void> acceptAdminInvitation(String email, String tempPassword) {
+    public ApiResponseWrapper<Void> acceptAdminInvitation(String email, String tempPassword) {
         log.info("Processing admin invitation acceptance for: {}", email);
 
         AdminInvitation invitation = adminInvitationRepository.findByEmail(email)
@@ -163,7 +163,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ApiResponse<Void> updateAdminAuthorities(String email, List<String> authorities) {
+    public ApiResponseWrapper<Void> updateAdminAuthorities(String email, List<String> authorities) {
         log.info("Updating authorities for admin: {}", email);
 
         User admin = userRepository.findByEmail(email)
@@ -191,7 +191,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ApiResponse<Void> deactivateAdmin(String email) {
+    public ApiResponseWrapper<Void> deactivateAdmin(String email) {
         log.info("Deactivating admin: {}", email);
 
         User admin = userRepository.findByEmail(email)
@@ -213,7 +213,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ApiResponse<Void> reactivateAdmin(String email) {
+    public ApiResponseWrapper<Void> reactivateAdmin(String email) {
         log.info("Reactivating admin: {}", email);
 
         User admin = userRepository.findByEmail(email)

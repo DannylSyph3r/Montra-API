@@ -1,6 +1,6 @@
 package dev.slethware.montra.controller;
 
-import dev.slethware.montra.shared.response.ApiResponse;
+import dev.slethware.montra.shared.ApiResponseWrapper;
 import dev.slethware.montra.shared.util.ApiResponseUtil;
 import dev.slethware.montra.user.UserService;
 import dev.slethware.montra.user.dto.UserProfileUpdateRequest;
@@ -24,14 +24,14 @@ public class UserController {
 
     @GetMapping("/profile")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<UserResponse>> getProfile(@AuthenticationPrincipal User user) {
+    public ResponseEntity<ApiResponseWrapper<UserResponse>> getProfile(@AuthenticationPrincipal User user) {
         UserResponse userResponse = userService.getUserResponse(user);
         return ResponseEntity.ok(ApiResponseUtil.successful("Profile retrieved successfully", userResponse));
     }
 
     @PutMapping("/profile")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+    public ResponseEntity<ApiResponseWrapper<UserResponse>> updateProfile(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody UserProfileUpdateRequest request) {
 
@@ -44,7 +44,7 @@ public class UserController {
 
     @GetMapping("/users")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Page<UserResponse>>> getUsers(
+    public ResponseEntity<ApiResponseWrapper<Page<UserResponse>>> getUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
@@ -56,7 +56,7 @@ public class UserController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponseWrapper<UserResponse>> getUserById(@PathVariable Long id) {
         User user = userService.getUserById(id);
         UserResponse response = userService.getUserResponse(user);
 

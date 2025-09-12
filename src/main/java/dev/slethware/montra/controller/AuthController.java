@@ -2,7 +2,7 @@ package dev.slethware.montra.controller;
 
 import dev.slethware.montra.auth.AuthenticationService;
 import dev.slethware.montra.auth.dto.*;
-import dev.slethware.montra.shared.response.ApiResponse;
+import dev.slethware.montra.shared.ApiResponseWrapper;
 import dev.slethware.montra.shared.util.ApiResponseUtil;
 import dev.slethware.montra.user.UserService;
 import dev.slethware.montra.user.dto.*;
@@ -23,44 +23,44 @@ public class AuthController {
     private final UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody UserRegistrationRequest request) {
-        ApiResponse<Void> response = authenticationService.registerUser(request);
+    public ResponseEntity<ApiResponseWrapper<Void>> register(@Valid @RequestBody UserRegistrationRequest request) {
+        ApiResponseWrapper<Void> response = authenticationService.registerUser(request);
         return ResponseEntity.status(201).body(response);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthenticationResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponseWrapper<AuthenticationResponse>> login(@Valid @RequestBody LoginRequest request) {
         if (!request.hasValidCredentials()) {
             return ResponseEntity.badRequest().body(
                     ApiResponseUtil.badRequest("Either password or PIN must be provided")
             );
         }
 
-        ApiResponse<AuthenticationResponse> response = authenticationService.login(request);
+        ApiResponseWrapper<AuthenticationResponse> response = authenticationService.login(request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<AuthenticationResponse>> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
-        ApiResponse<AuthenticationResponse> response = authenticationService.refreshToken(request);
+    public ResponseEntity<ApiResponseWrapper<AuthenticationResponse>> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
+        ApiResponseWrapper<AuthenticationResponse> response = authenticationService.refreshToken(request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/verify-email")
-    public ResponseEntity<ApiResponse<Void>> verifyEmail(@Valid @RequestBody EmailVerificationRequest request) {
-        ApiResponse<Void> response = authenticationService.verifyEmail(request);
+    public ResponseEntity<ApiResponseWrapper<Void>> verifyEmail(@Valid @RequestBody EmailVerificationRequest request) {
+        ApiResponseWrapper<Void> response = authenticationService.verifyEmail(request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<ApiResponse<Void>> resendEmailVerification(@RequestParam String email) {
-        ApiResponse<Void> response = authenticationService.resendEmailVerification(email);
+    public ResponseEntity<ApiResponseWrapper<Void>> resendEmailVerification(@RequestParam String email) {
+        ApiResponseWrapper<Void> response = authenticationService.resendEmailVerification(email);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/setup-pin")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> setupPin(
+    public ResponseEntity<ApiResponseWrapper<Void>> setupPin(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody SetupPinRequest request) {
 
@@ -76,7 +76,7 @@ public class AuthController {
 
     @PostMapping("/complete-setup")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> completeAccountSetup(
+    public ResponseEntity<ApiResponseWrapper<Void>> completeAccountSetup(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody CompleteAccountSetupRequest request) {
 
@@ -85,15 +85,15 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody TokenRefreshRequest request) {
-        ApiResponse<Void> response = authenticationService.logout(request.getRefreshToken());
+    public ResponseEntity<ApiResponseWrapper<Void>> logout(@Valid @RequestBody TokenRefreshRequest request) {
+        ApiResponseWrapper<Void> response = authenticationService.logout(request.getRefreshToken());
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/logout-all")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> logoutAllDevices(@AuthenticationPrincipal User user) {
-        ApiResponse<Void> response = authenticationService.logoutAllDevices(user.getEmail());
+    public ResponseEntity<ApiResponseWrapper<Void>> logoutAllDevices(@AuthenticationPrincipal User user) {
+        ApiResponseWrapper<Void> response = authenticationService.logoutAllDevices(user.getEmail());
         return ResponseEntity.ok(response);
     }
 }

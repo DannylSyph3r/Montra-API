@@ -5,7 +5,7 @@ import dev.slethware.montra.email.EmailService;
 import dev.slethware.montra.jwt.JwtService;
 import dev.slethware.montra.shared.exception.BadRequestException;
 import dev.slethware.montra.shared.exception.UnauthorizedAccessException;
-import dev.slethware.montra.shared.response.ApiResponse;
+import dev.slethware.montra.shared.ApiResponseWrapper;
 import dev.slethware.montra.shared.util.ApiResponseUtil;
 import dev.slethware.montra.token.TokenService;
 import dev.slethware.montra.token.model.Token;
@@ -32,7 +32,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public ApiResponse<Void> registerUser(UserRegistrationRequest request) {
+    public ApiResponseWrapper<Void> registerUser(UserRegistrationRequest request) {
         log.info("Registering user with email: {}", request.getEmail());
 
         User user = userService.createUser(request);
@@ -48,7 +48,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ApiResponse<AuthenticationResponse> login(LoginRequest request) {
+    public ApiResponseWrapper<AuthenticationResponse> login(LoginRequest request) {
         log.info("Attempting login for user: {} with method: {}",
                 request.getEmail(),
                 request.isPasswordLogin() ? "PASSWORD" : "PIN");
@@ -88,7 +88,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     @Transactional(readOnly = true)
-    public ApiResponse<AuthenticationResponse> refreshToken(TokenRefreshRequest request) {
+    public ApiResponseWrapper<AuthenticationResponse> refreshToken(TokenRefreshRequest request) {
         log.info("Attempting to refresh token");
 
         Token refreshToken = tokenService.validateAndGetRefreshToken(request.getRefreshToken());
@@ -124,7 +124,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ApiResponse<Void> verifyEmail(EmailVerificationRequest request) {
+    public ApiResponseWrapper<Void> verifyEmail(EmailVerificationRequest request) {
         log.info("Verifying email for user: {}", request.getEmail());
 
         User user = userService.getUserByEmail(request.getEmail());
@@ -145,7 +145,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ApiResponse<Void> resendEmailVerification(String email) {
+    public ApiResponseWrapper<Void> resendEmailVerification(String email) {
         log.info("Resending email verification for user: {}", email);
 
         User user = userService.getUserByEmail(email);
@@ -161,7 +161,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ApiResponse<Void> logout(String refreshToken) {
+    public ApiResponseWrapper<Void> logout(String refreshToken) {
         log.info("Logging out user");
 
         Token token = tokenService.validateAndGetRefreshToken(refreshToken);
@@ -171,7 +171,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ApiResponse<Void> logoutAllDevices(String email) {
+    public ApiResponseWrapper<Void> logoutAllDevices(String email) {
         log.info("Logging out all devices for user: {}", email);
 
         User user = userService.getUserByEmail(email);
@@ -198,7 +198,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return userService.validateUserPin(user.getEmail(), pin);
     }
 
-    private ApiResponse<AuthenticationResponse> generateAuthenticationResponse(User user) {
+    private ApiResponseWrapper<AuthenticationResponse> generateAuthenticationResponse(User user) {
         String accessToken = jwtService.generateToken(user);
         String refreshTokenValue = jwtService.generateRefreshToken(user);
 

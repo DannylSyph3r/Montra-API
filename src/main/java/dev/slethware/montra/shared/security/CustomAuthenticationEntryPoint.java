@@ -1,7 +1,7 @@
 package dev.slethware.montra.shared.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.slethware.montra.shared.response.ApiResponse;
+import dev.slethware.montra.shared.ApiResponseWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +25,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
-        ApiResponse<?> apiResponse = ApiResponse.builder()
+        ApiResponseWrapper<?> apiResponse = ApiResponseWrapper.builder()
                 .message("Authentication required")
                 .statusCode(401)
                 .isSuccessful(false)
