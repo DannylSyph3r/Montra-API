@@ -1,4 +1,4 @@
-package dev.slethware.montra.shared.config;
+package dev.slethware.montra.shared.security.authentication;
 
 import dev.slethware.montra.user.UserRepository;
 import lombok.RequiredArgsConstructor;

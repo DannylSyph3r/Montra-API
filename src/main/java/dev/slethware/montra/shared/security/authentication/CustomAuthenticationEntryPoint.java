@@ -1,4 +1,4 @@
-package dev.slethware.montra.shared.security;
+package dev.slethware.montra.shared.security.authentication;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.slethware.montra.shared.ApiResponseWrapper;

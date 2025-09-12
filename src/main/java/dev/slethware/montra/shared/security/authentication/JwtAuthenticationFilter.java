@@ -1,7 +1,6 @@
-package dev.slethware.montra.shared.security;
+package dev.slethware.montra.shared.security.authentication;
 
 import dev.slethware.montra.jwt.JwtService;
-import dev.slethware.montra.shared.config.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
