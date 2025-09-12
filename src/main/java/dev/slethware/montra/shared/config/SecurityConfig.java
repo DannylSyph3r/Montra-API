@@ -1,5 +1,7 @@
 package dev.slethware.montra.shared.config;
 
+import dev.slethware.montra.shared.security.CustomLogoutSuccessHandler;
+import dev.slethware.montra.shared.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

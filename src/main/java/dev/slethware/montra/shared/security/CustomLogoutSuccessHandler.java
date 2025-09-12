@@ -1,4 +1,4 @@
-package dev.slethware.montra.shared.config;
+package dev.slethware.montra.shared.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.slethware.montra.shared.response.ApiResponse;
