@@ -1,7 +1,6 @@
 package dev.slethware.montra.user.model;
 
 import dev.slethware.montra.shared.audit.Auditable;
-import dev.slethware.montra.shared.exception.BadRequestException;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -16,61 +15,80 @@ import java.util.List;
 @Entity
 @Table(name = "users", indexes = {
         @Index(name = "email_idx", columnList = "email", unique = true),
-        @Index(name = "username_idx", columnList = "username", unique = true),
-        @Index(name = "pin_hash_idx", columnList = "pinHash")
+        @Index(name = "username_case_insensitive_idx", columnList = "username"),
+        @Index(name = "pin_hash_idx", columnList = "pinHash"),
+        @Index(name = "username_customized_idx", columnList = "usernameCustomized")
 })
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class User extends Auditable implements UserDetails {
 
-    @Column(unique = true)
+    // Identity Fields
+    @Column(nullable = false, length = 50)
     private String username;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true, nullable = false, length = 255)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String firstName;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String lastName;
 
+    @Column(nullable = false)
     private String passwordHash;
 
-    private String pinHash;
+    // Profile Fields
+    @Column(columnDefinition = "TEXT")
+    private String bio;
 
-    private LocalDateTime pinSetAt;
-
-    private int pinAttempts = 0;
-
-    private LocalDateTime pinBlockedUntil;
-
-    @Enumerated(EnumType.STRING)
-    private UserStatus status = UserStatus.PENDING_EMAIL_VERIFICATION;
-
-    @Enumerated(EnumType.STRING)
-    private UserRole role = UserRole.USER;
+    @Column(columnDefinition = "TEXT")
+    private String profilePictureUrl;
 
     private LocalDate dateOfBirth;
 
-    private String profilePictureUrl;
+    // Username Management
+    @Column(nullable = false)
+    private Boolean usernameCustomized = false;
 
-    private boolean emailVerified = false;
+    private LocalDateTime usernameLastChangedAt;
 
-    private boolean accountSetupComplete = false;
+    @Column(nullable = false)
+    private Integer usernameChangeCount = 0;
 
-    private boolean enabled = false;
+    @Column(nullable = false)
+    private Integer usernameChangesThisYear = 0;
 
-    private boolean accountNonExpired = true;
+    private LocalDate usernameYearResetDate;
 
-    private boolean accountNonLocked = true;
+    // PIN fields
+    private String pinHash;
+    private LocalDateTime pinSetAt;
+    private Integer pinAttempts = 0;
+    private LocalDateTime pinBlockedUntil;
 
-    private boolean credentialsNonExpired = true;
+    // Account Status
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserStatus status = UserStatus.PENDING_EMAIL_VERIFICATION;
 
-    private boolean canResetPassword = false;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role = UserRole.USER;
 
+    private Boolean emailVerified = false;
+    private Boolean accountSetupComplete = false;
+
+    // Security Flags
+    private Boolean enabled = false;
+    private Boolean accountNonExpired = true;
+    private Boolean accountNonLocked = true;
+    private Boolean credentialsNonExpired = true;
+    private Boolean canResetPassword = false;
+
+    // Authorities
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_authorities",
@@ -79,36 +97,23 @@ public class User extends Auditable implements UserDetails {
     )
     private List<Authority> authorities;
 
-    // Business Logic Methods
     public void verifyEmail() {
-        if (this.emailVerified) {
-            throw new BadRequestException("Email is already verified");
-        }
         this.emailVerified = true;
         this.status = UserStatus.EMAIL_VERIFIED;
         this.enabled = true;
         this.accountNonLocked = true;
     }
 
+    public void completeAccountSetup() {
+        this.accountSetupComplete = true;
+        this.status = UserStatus.ACCOUNT_SETUP_COMPLETE;
+    }
+
     public void setupPin(String hashedPin) {
-        if (!this.emailVerified) {
-            throw new BadRequestException("Email must be verified before setting up PIN");
-        }
         this.pinHash = hashedPin;
         this.pinSetAt = LocalDateTime.now();
         this.pinAttempts = 0;
         this.pinBlockedUntil = null;
-    }
-
-    public void completeAccountSetup() {
-        if (!this.emailVerified) {
-            throw new BadRequestException("Email must be verified to complete setup");
-        }
-        if (this.username == null || this.username.trim().isEmpty()) {
-            throw new BadRequestException("Username is required to complete setup");
-        }
-        this.accountSetupComplete = true;
-        this.status = UserStatus.ACCOUNT_SETUP_COMPLETE;
     }
 
     public boolean canAttemptPin() {
@@ -131,6 +136,14 @@ public class User extends Auditable implements UserDetails {
         return this.pinHash != null && !this.pinHash.trim().isEmpty();
     }
 
+    public void updateUsername(String newUsername) {
+        this.username = newUsername;
+        this.usernameCustomized = true;
+        this.usernameLastChangedAt = LocalDateTime.now();
+        this.usernameChangeCount++;
+        this.usernameChangesThisYear++;
+    }
+
     public String getFullName() {
         return this.firstName + " " + this.lastName;
     }
@@ -147,7 +160,10 @@ public class User extends Auditable implements UserDetails {
         return this.role == UserRole.USER;
     }
 
-    // UserDetails interface implementations
+    public boolean hasCustomizedUsername() {
+        return this.usernameCustomized != null && this.usernameCustomized;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;
@@ -165,21 +181,22 @@ public class User extends Auditable implements UserDetails {
 
     @Override
     public boolean isAccountNonExpired() {
-        return accountNonExpired;
+        return accountNonExpired != null ? accountNonExpired : true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return accountNonLocked && canAttemptPin();
+        boolean locked = accountNonLocked != null ? accountNonLocked : true;
+        return locked && canAttemptPin();
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return credentialsNonExpired;
+        return credentialsNonExpired != null ? credentialsNonExpired : true;
     }
 
     @Override
     public boolean isEnabled() {
-        return enabled;
+        return enabled != null ? enabled : false;
     }
 }

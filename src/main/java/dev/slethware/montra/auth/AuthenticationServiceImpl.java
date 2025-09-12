@@ -35,16 +35,23 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public ApiResponseWrapper<Void> registerUser(UserRegistrationRequest request) {
         log.info("Registering user with email: {}", request.getEmail());
 
-        User user = userService.createUser(request);
+        try {
+            // Create user (username will be automatically set to email in UserService)
+            User user = userService.createUser(request);
 
-        // Generate email verification token (24 hours)
-        String verificationToken = tokenService.generateToken(user, TokenType.EMAIL_VERIFICATION, 24 * 60 * 60);
+            // Generate email verification token (24 hours)
+            String verificationToken = tokenService.generateToken(user, TokenType.EMAIL_VERIFICATION, 24 * 60 * 60);
 
-        // Send verification email
-        emailService.sendEmailVerification(user.getEmail(), verificationToken);
+            // Send verification email
+            emailService.sendEmailVerification(user.getEmail(), verificationToken);
 
-        log.info("User registered successfully: {}", user.getEmail());
-        return ApiResponseUtil.successfulCreate("User registered successfully. Please check your email for verification.", null);
+            log.info("User registered successfully: {}", user.getEmail());
+            return ApiResponseUtil.successfulCreate("User registered successfully. Please check your email for verification.", null);
+
+        } catch (Exception e) {
+            log.error("Registration failed for email: {} - Error: {}", request.getEmail(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Override
@@ -53,37 +60,50 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 request.getEmail(),
                 request.isPasswordLogin() ? "PASSWORD" : "PIN");
 
-        // Validate that either password or PIN is provided
-        if (!request.hasValidCredentials()) {
-            throw new BadRequestException("Either password or PIN must be provided");
+        try {
+            // Validate that either password or PIN is provided
+            if (!request.hasValidCredentials()) {
+                throw new BadRequestException("Either password or PIN must be provided");
+            }
+
+            // Check if user exists
+            if (!userService.doesUserExist(request.getEmail())) {
+                throw new UnauthorizedAccessException("Invalid credentials");
+            }
+
+            User user = userService.getUserByEmail(request.getEmail());
+
+            // Check if email is verified
+            if (user.getEmailVerified() == null || !user.getEmailVerified()) {
+                throw new BadRequestException("Email not verified. Please verify your email before logging in.");
+            }
+
+            // Check if user is enabled
+            if (user.getEnabled() == null || !user.getEnabled()) {
+                throw new UnauthorizedAccessException("Account is disabled");
+            }
+
+            // Authenticate based on method
+            boolean authSuccess = false;
+
+            if (request.isPasswordLogin()) {
+                authSuccess = authenticateWithPassword(user, request.getPassword());
+            } else if (request.isPinLogin()) {
+                authSuccess = authenticateWithPin(user, request.getPin());
+            }
+
+            if (!authSuccess) {
+                throw new UnauthorizedAccessException("Invalid credentials");
+            }
+
+            ApiResponseWrapper<AuthenticationResponse> response = generateAuthenticationResponse(user);
+            log.info("Login successful for user: {}", user.getEmail());
+            return response;
+
+        } catch (Exception e) {
+            log.error("Login failed for user: {} - Error: {}", request.getEmail(), e.getMessage());
+            throw e;
         }
-
-        // Check if user exists
-        if (!userService.doesUserExist(request.getEmail())) {
-            throw new UnauthorizedAccessException("Invalid credentials");
-        }
-
-        User user = userService.getUserByEmail(request.getEmail());
-
-        // Check if email is verified
-        if (!user.isEmailVerified()) {
-            throw new BadRequestException("Email not verified. Please verify your email before logging in.");
-        }
-
-        // Authenticate based on method
-        boolean authSuccess = false;
-
-        if (request.isPasswordLogin()) {
-            authSuccess = authenticateWithPassword(user, request.getPassword());
-        } else if (request.isPinLogin()) {
-            authSuccess = authenticateWithPin(user, request.getPin());
-        }
-
-        if (!authSuccess) {
-            throw new UnauthorizedAccessException("Invalid credentials");
-        }
-
-        return generateAuthenticationResponse(user);
     }
 
     @Override
@@ -91,137 +111,227 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     public ApiResponseWrapper<AuthenticationResponse> refreshToken(TokenRefreshRequest request) {
         log.info("Attempting to refresh token");
 
-        Token refreshToken = tokenService.validateAndGetRefreshToken(request.getRefreshToken());
-        User user = refreshToken.getUser();
+        try {
+            Token refreshToken = tokenService.validateAndGetRefreshToken(request.getRefreshToken());
+            User user = refreshToken.getUser();
 
-        // Generate new tokens
-        String newAccessToken = jwtService.generateToken(user);
-        String newRefreshTokenValue = jwtService.generateRefreshToken(user);
+            // Check if user is still enabled
+            if (user.getEnabled() == null || !user.getEnabled()) {
+                throw new UnauthorizedAccessException("Account is disabled");
+            }
 
-        // Revoke old refresh token
-        refreshToken.revoke();
+            // Generate new tokens
+            String newAccessToken = jwtService.generateToken(user);
+            String newRefreshTokenValue = jwtService.generateRefreshToken(user);
 
-        // Create new refresh token
-        Token newRefreshToken = tokenService.generateRefreshToken(
-                user,
-                newRefreshTokenValue,
-                30 * 24 * 60 * 60, // 30 days
-                refreshToken.getDeviceInfo(),
-                refreshToken.getIpAddress()
-        );
+            // Revoke old refresh token
+            refreshToken.revoke();
 
-        AuthenticationResponse response = AuthenticationResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken.getToken())
-                .accessTokenExpiry(jwtService.getExpirationDate(newAccessToken))
-                .refreshTokenExpiry(jwtService.getRefreshTokenExpirationDate(newRefreshTokenValue))
-                .userDetails(userService.getUserDetails(user))
-                .requiresPinSetup(false) // No setup required for refresh
-                .requiresAccountSetup(false)
-                .build();
+            // Create new refresh token
+            Token newRefreshToken = tokenService.generateRefreshToken(
+                    user,
+                    newRefreshTokenValue,
+                    30 * 24 * 60 * 60, // 30 days
+                    refreshToken.getDeviceInfo(),
+                    refreshToken.getIpAddress()
+            );
 
-        return ApiResponseUtil.successful("Token refreshed successfully", response);
+            AuthenticationResponse response = AuthenticationResponse.builder()
+                    .accessToken(newAccessToken)
+                    .refreshToken(newRefreshToken.getToken())
+                    .accessTokenExpiry(jwtService.getExpirationDate(newAccessToken))
+                    .refreshTokenExpiry(jwtService.getRefreshTokenExpirationDate(newRefreshTokenValue))
+                    .userDetails(userService.getUserDetails(user))
+                    .requiresPinSetup(false) // No setup required for refresh
+                    .requiresAccountSetup(false)
+                    .build();
+
+            log.info("Token refreshed successfully for user: {}", user.getEmail());
+            return ApiResponseUtil.successful("Token refreshed successfully", response);
+
+        } catch (Exception e) {
+            log.error("Token refresh failed - Error: {}", e.getMessage());
+            throw e;
+        }
     }
 
     @Override
     public ApiResponseWrapper<Void> verifyEmail(EmailVerificationRequest request) {
         log.info("Verifying email for user: {}", request.getEmail());
 
-        User user = userService.getUserByEmail(request.getEmail());
+        try {
+            User user = userService.getUserByEmail(request.getEmail());
 
-        if (user.isEmailVerified()) {
-            throw new BadRequestException("Email already verified");
+            if (user.getEmailVerified() != null && user.getEmailVerified()) {
+                throw new BadRequestException("Email already verified");
+            }
+
+            // Validate the verification token
+            tokenService.validateToken(request.getToken(), user, TokenType.EMAIL_VERIFICATION);
+
+            // Verify the email
+            userService.verifyUserEmail(request.getEmail());
+
+            // Send welcome email
+            emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName());
+
+            log.info("Email verified successfully for user: {}", request.getEmail());
+            return ApiResponseUtil.successful("Email verified successfully", null);
+
+        } catch (Exception e) {
+            log.error("Email verification failed for user: {} - Error: {}", request.getEmail(), e.getMessage());
+            throw e;
         }
-
-        tokenService.validateToken(request.getToken(), user, TokenType.EMAIL_VERIFICATION);
-
-        userService.verifyUserEmail(request.getEmail());
-
-        // Send welcome email
-        emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName());
-
-        log.info("Email verified successfully for user: {}", request.getEmail());
-        return ApiResponseUtil.successful("Email verified successfully", null);
     }
 
     @Override
     public ApiResponseWrapper<Void> resendEmailVerification(String email) {
         log.info("Resending email verification for user: {}", email);
 
-        User user = userService.getUserByEmail(email);
+        try {
+            User user = userService.getUserByEmail(email);
 
-        if (user.isEmailVerified()) {
-            throw new BadRequestException("Email already verified");
+            if (user.getEmailVerified() != null && user.getEmailVerified()) {
+                throw new BadRequestException("Email already verified");
+            }
+
+            // Generate new verification token
+            String verificationToken = tokenService.generateToken(user, TokenType.EMAIL_VERIFICATION, 24 * 60 * 60);
+
+            // Send verification email
+            emailService.sendEmailVerification(email, verificationToken);
+
+            log.info("Email verification resent successfully for user: {}", email);
+            return ApiResponseUtil.successful("Verification email sent successfully", null);
+
+        } catch (Exception e) {
+            log.error("Failed to resend email verification for user: {} - Error: {}", email, e.getMessage());
+            throw e;
         }
-
-        String verificationToken = tokenService.generateToken(user, TokenType.EMAIL_VERIFICATION, 24 * 60 * 60);
-        emailService.sendEmailVerification(email, verificationToken);
-
-        return ApiResponseUtil.successful("Verification email sent successfully", null);
     }
 
     @Override
     public ApiResponseWrapper<Void> logout(String refreshToken) {
-        log.info("Logging out user");
+        log.info("Processing logout request");
 
-        Token token = tokenService.validateAndGetRefreshToken(refreshToken);
-        token.revoke();
+        try {
+            Token token = tokenService.validateAndGetRefreshToken(refreshToken);
 
-        return ApiResponseUtil.successful("Logged out successfully", null);
+            // Revoke the refresh token
+            token.revoke();
+
+            log.info("User logged out successfully");
+            return ApiResponseUtil.successful("Logged out successfully", null);
+
+        } catch (Exception e) {
+            log.error("Logout failed - Error: {}", e.getMessage());
+            throw e;
+        }
     }
 
     @Override
     public ApiResponseWrapper<Void> logoutAllDevices(String email) {
         log.info("Logging out all devices for user: {}", email);
 
-        User user = userService.getUserByEmail(email);
-        tokenService.revokeAllUserRefreshTokens(user);
+        try {
+            User user = userService.getUserByEmail(email);
 
-        return ApiResponseUtil.successful("Logged out from all devices successfully", null);
+            // Revoke all refresh tokens for the user
+            tokenService.revokeAllUserRefreshTokens(user);
+
+            log.info("All devices logged out successfully for user: {}", email);
+            return ApiResponseUtil.successful("Logged out from all devices successfully", null);
+
+        } catch (Exception e) {
+            log.error("Failed to logout all devices for user: {} - Error: {}", email, e.getMessage());
+            throw e;
+        }
     }
 
-    // Private helper methods
-
+    // HELPER METHODS
     private boolean authenticateWithPassword(User user, String password) {
-        return passwordEncoder.matches(password, user.getPassword());
+        try {
+            boolean matches = passwordEncoder.matches(password, user.getPassword());
+
+            if (!matches) {
+                log.warn("Password authentication failed for user: {}", user.getEmail());
+            }
+
+            return matches;
+        } catch (Exception e) {
+            log.error("Error during password authentication for user: {} - Error: {}", user.getEmail(), e.getMessage());
+            return false;
+        }
     }
 
     private boolean authenticateWithPin(User user, String pin) {
-        if (!user.isPinSet()) {
-            throw new BadRequestException("PIN not set. Please log in with password to set up PIN.");
-        }
+        try {
+            if (!user.isPinSet()) {
+                throw new BadRequestException("PIN not set. Please log in with password to set up PIN.");
+            }
 
-        if (!user.canAttemptPin()) {
-            throw new BadRequestException("PIN attempts exceeded. Please try again later or use password login.");
-        }
+            if (!user.canAttemptPin()) {
+                throw new BadRequestException("PIN attempts exceeded. Please try again later or use password login.");
+            }
 
-        return userService.validateUserPin(user.getEmail(), pin);
+            boolean isValid = userService.validateUserPin(user.getEmail(), pin);
+
+            if (!isValid) {
+                log.warn("PIN authentication failed for user: {}", user.getEmail());
+            }
+
+            return isValid;
+        } catch (BadRequestException e) {
+            // Re-throw business rule exceptions
+            throw e;
+        } catch (Exception e) {
+            log.error("Error during PIN authentication for user: {} - Error: {}", user.getEmail(), e.getMessage());
+            return false;
+        }
     }
 
     private ApiResponseWrapper<AuthenticationResponse> generateAuthenticationResponse(User user) {
-        String accessToken = jwtService.generateToken(user);
-        String refreshTokenValue = jwtService.generateRefreshToken(user);
+        try {
+            String accessToken = jwtService.generateToken(user);
+            String refreshTokenValue = jwtService.generateRefreshToken(user);
 
-        // Create refresh token entity with device info (would be passed from request in real implementation)
-        Token refreshToken = tokenService.generateRefreshToken(
-                user,
-                refreshTokenValue,
-                30 * 24 * 60 * 60, // 30 days
-                "Unknown Device", // TODO: Extract from request headers
-                "Unknown IP"      // TODO: Extract from request
-        );
+            // Create refresh token entity with device info
+            // TODO: Extract actual device info and IP from request headers
+            Token refreshToken = tokenService.generateRefreshToken(
+                    user,
+                    refreshTokenValue,
+                    30 * 24 * 60 * 60, // 30 days
+                    "Unknown Device",
+                    "Unknown IP"
+            );
 
-        AuthenticationResponse response = AuthenticationResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
-                .accessTokenExpiry(jwtService.getExpirationDate(accessToken))
-                .refreshTokenExpiry(jwtService.getRefreshTokenExpirationDate(refreshTokenValue))
-                .userDetails(userService.getUserDetails(user))
-                .requiresPinSetup(!user.isPinSet() && user.isEmailVerified())
-                .requiresAccountSetup(!user.isAccountSetupComplete() && user.isEmailVerified())
-                .build();
+            // Safe boolean checks for nullable fields
+            boolean emailVerified = user.getEmailVerified() != null && user.getEmailVerified();
+            boolean accountSetupComplete = user.getAccountSetupComplete() != null && user.getAccountSetupComplete();
+            boolean pinSet = user.isPinSet();
 
-        log.info("Authentication successful for user: {}", user.getEmail());
-        return ApiResponseUtil.successful("Login successful", response);
+            // Determine what setup steps are needed
+            boolean requiresPinSetup = emailVerified && !pinSet;
+            boolean requiresAccountSetup = emailVerified && !accountSetupComplete;
+
+            AuthenticationResponse response = AuthenticationResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken.getToken())
+                    .accessTokenExpiry(jwtService.getExpirationDate(accessToken))
+                    .refreshTokenExpiry(jwtService.getRefreshTokenExpirationDate(refreshTokenValue))
+                    .userDetails(userService.getUserDetails(user))
+                    .requiresPinSetup(requiresPinSetup)
+                    .requiresAccountSetup(requiresAccountSetup)
+                    .build();
+
+            log.debug("Generated authentication response for user: {} - PIN setup required: {}, Account setup required: {}",
+                    user.getEmail(), requiresPinSetup, requiresAccountSetup);
+
+            return ApiResponseUtil.successful("Login successful", response);
+
+        } catch (Exception e) {
+            log.error("Failed to generate authentication response for user: {} - Error: {}", user.getEmail(), e.getMessage());
+            throw new RuntimeException("Failed to generate authentication response", e);
+        }
     }
 }

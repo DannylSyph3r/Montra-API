@@ -71,17 +71,17 @@ public class AuthController {
         }
 
         userService.setupUserPin(user, request.getPin());
-        return ResponseEntity.ok(ApiResponseUtil.successful("PIN setup successfully", null));
+        return ResponseEntity.ok(ApiResponseUtil.successful("PIN setup successful", null));
     }
 
-    @PostMapping("/complete-setup")
+    @PostMapping("/update-profile")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponseWrapper<Void>> completeAccountSetup(
+    public ResponseEntity<ApiResponseWrapper<Void>> updateUserProfile(
             @AuthenticationPrincipal User user,
-            @Valid @RequestBody CompleteAccountSetupRequest request) {
+            @Valid @RequestBody UpdateUserProfileRequest request) {
 
-        userService.completeUserAccountSetup(user, request);
-        return ResponseEntity.ok(ApiResponseUtil.successful("Account setup completed successfully", null));
+        userService.updateUserProfile(user, request);
+        return ResponseEntity.ok(ApiResponseUtil.successful("Profile updated successfully", null));
     }
 
     @PostMapping("/logout")
