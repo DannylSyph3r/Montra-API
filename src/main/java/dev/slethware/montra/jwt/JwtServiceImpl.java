@@ -33,44 +33,67 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public String extractUserName(String token) {
+        log.debug("Extracting username from token");
         return extractClaim(token, Claims::getSubject);
     }
 
     @Override
     public String generateToken(UserDetails userDetails) {
+        log.debug("Generating access token for user: {}", userDetails.getUsername());
+
         Map<String, Object> claims = new HashMap<>();
         var roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .toList();
         claims.put("roles", roles);
-        return generateToken(claims, userDetails, accessTokenExpirationInMillis);
+
+        String token = generateToken(claims, userDetails, accessTokenExpirationInMillis);
+        log.debug("Access token generated successfully for user: {}", userDetails.getUsername());
+        return token;
     }
 
     @Override
     public String generateRefreshToken(UserDetails userDetails) {
+        log.debug("Generating refresh token for user: {}", userDetails.getUsername());
+
         Map<String, Object> claims = new HashMap<>();
         claims.put("type", "refresh");
-        return generateToken(claims, userDetails, refreshTokenExpirationInMillis);
+
+        String token = generateToken(claims, userDetails, refreshTokenExpirationInMillis);
+        log.debug("Refresh token generated successfully for user: {}", userDetails.getUsername());
+        return token;
     }
 
     @Override
     public boolean isTokenValid(String token, UserDetails userDetails) {
+        log.debug("Validating access token for user: {}", userDetails.getUsername());
+
         final String userName = extractUserName(token);
-        return (userName.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        boolean isValid = (userName.equals(userDetails.getUsername())) && !isTokenExpired(token);
+
+        log.debug("Access token validation result for user {}: {}", userDetails.getUsername(), isValid);
+        return isValid;
     }
 
     @Override
     public boolean isRefreshTokenValid(String token, UserDetails userDetails) {
-        return isTokenValid(token, userDetails) && isRefreshToken(token);
+        log.debug("Validating refresh token for user: {}", userDetails.getUsername());
+
+        boolean isValid = isTokenValid(token, userDetails) && isRefreshToken(token);
+
+        log.debug("Refresh token validation result for user {}: {}", userDetails.getUsername(), isValid);
+        return isValid;
     }
 
     @Override
     public Date getExpirationDate(String token) {
+        log.debug("Extracting expiration date from token");
         return extractExpiration(token);
     }
 
     @Override
     public Date getRefreshTokenExpirationDate(String token) {
+        log.debug("Extracting refresh token expiration date");
         return extractExpiration(token);
     }
 
@@ -99,6 +122,7 @@ public class JwtServiceImpl implements JwtService {
             Claims claims = extractAllClaims(token);
             return "refresh".equals(claims.get("type"));
         } catch (Exception e) {
+            log.warn("Error checking if token is refresh token: {}", e.getMessage());
             return false;
         }
     }

@@ -44,13 +44,13 @@ public class TokenServiceImpl implements TokenService {
 
         tokenRepository.save(token);
 
-        log.info("Token generated successfully for user: {}", user.getEmail());
+        log.info("Token generated successfully for user: {} with type: {}", user.getEmail(), tokenType);
         return tokenValue;
     }
 
     @Override
     public String generateOTP(User user, TokenType tokenType, long validityInSeconds, int otpLength) {
-        log.info("Generating OTP for user: {} with type: {}", user.getEmail(), tokenType);
+        log.info("Generating OTP for user: {} with type: {} (length: {})", user.getEmail(), tokenType, otpLength);
 
         // Invalidate existing tokens of the same type
         invalidateAllUserTokens(user, tokenType);
@@ -66,13 +66,13 @@ public class TokenServiceImpl implements TokenService {
 
         tokenRepository.save(token);
 
-        log.info("OTP generated successfully for user: {}", user.getEmail());
+        log.info("OTP generated successfully for user: {} with type: {}", user.getEmail(), tokenType);
         return otpValue;
     }
 
     @Override
     public Token generateRefreshToken(User user, String tokenValue, long validityInSeconds, String deviceInfo, String ipAddress) {
-        log.info("Generating refresh token for user: {}", user.getEmail());
+        log.info("Generating refresh token for user: {} (device: {})", user.getEmail(), deviceInfo);
 
         LocalDateTime expiryDate = LocalDateTime.now().plusSeconds(validityInSeconds);
 
@@ -86,7 +86,7 @@ public class TokenServiceImpl implements TokenService {
 
         Token savedToken = tokenRepository.save(refreshToken);
 
-        log.info("Refresh token generated successfully for user: {}", user.getEmail());
+        log.info("Refresh token generated successfully for user: {} with ID: {}", user.getEmail(), savedToken.getId());
         return savedToken;
     }
 
@@ -116,7 +116,7 @@ public class TokenServiceImpl implements TokenService {
             tokenRepository.save(token);
         }
 
-        log.info("Token validated successfully for user: {}", user.getEmail());
+        log.info("Token validated successfully for user: {} with type: {}", user.getEmail(), tokenType);
     }
 
     @Override
@@ -152,7 +152,7 @@ public class TokenServiceImpl implements TokenService {
         validTokens.forEach(Token::markAsUsed);
         tokenRepository.saveAll(validTokens);
 
-        log.info("Invalidated {} tokens for user: {}", validTokens.size(), user.getEmail());
+        log.info("Invalidated {} tokens for user: {} with type: {}", validTokens.size(), user.getEmail(), tokenType);
     }
 
     @Override
@@ -169,16 +169,19 @@ public class TokenServiceImpl implements TokenService {
     @Override
     @Transactional(readOnly = true)
     public List<Token> getActiveRefreshTokens(User user) {
-        return tokenRepository.findActiveRefreshTokensByUser(user, LocalDateTime.now());
+        log.debug("Retrieving active refresh tokens for user: {}", user.getEmail());
+        List<Token> tokens = tokenRepository.findActiveRefreshTokensByUser(user, LocalDateTime.now());
+        log.debug("Found {} active refresh tokens for user: {}", tokens.size(), user.getEmail());
+        return tokens;
     }
 
     @Override
     public void cleanupExpiredTokens() {
-        log.info("Cleaning up expired tokens");
+        log.info("Starting cleanup of expired tokens");
 
         int deletedCount = tokenRepository.deleteExpiredTokens(LocalDateTime.now());
 
-        log.info("Cleaned up {} expired tokens", deletedCount);
+        log.info("Cleanup completed - deleted {} expired tokens", deletedCount);
     }
 
     private String generateNumericOTP(int length) {

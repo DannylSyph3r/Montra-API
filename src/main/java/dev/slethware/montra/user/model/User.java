@@ -19,6 +19,7 @@ import java.util.List;
         @Index(name = "pin_hash_idx", columnList = "pinHash"),
         @Index(name = "username_customized_idx", columnList = "usernameCustomized")
 })
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)

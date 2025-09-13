@@ -74,13 +74,14 @@ public class UserServiceImpl implements UserService {
         user.setAuthorities(userAuthorities);
 
         User savedUser = userRepository.save(user);
-        log.info("User created successfully: {}", savedUser.getEmail());
+        log.info("User created successfully with ID: {} for email: {}", savedUser.getId(), savedUser.getEmail());
         return savedUser;
     }
 
     @Override
     @Transactional(readOnly = true)
     public User getUserByEmail(String email) {
+        log.debug("Retrieving user by email: {}", email);
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
     }
@@ -88,6 +89,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public User getUserByUsername(String username) {
+        log.debug("Retrieving user by username: {}", username);
         return userRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
     }
@@ -95,6 +97,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public User getUserById(Long id) {
+        log.debug("Retrieving user by ID: {}", id);
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
     }
@@ -102,17 +105,23 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public boolean doesUserExist(String email) {
+        log.debug("Checking if user exists with email: {}", email);
         return userRepository.existsByEmail(email);
     }
 
     @Override
     public User saveUser(User user) {
-        return userRepository.save(user);
+        log.debug("Saving user with ID: {}", user.getId());
+        User savedUser = userRepository.save(user);
+        log.debug("User saved successfully with ID: {}", savedUser.getId());
+        return savedUser;
     }
 
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserResponse(User user) {
+        log.debug("Building user response for user ID: {}", user.getId());
+
         List<String> authorityNames = getUserAuthorities(user).stream()
                 .map(Authority::getName)
                 .collect(Collectors.toList());
@@ -125,8 +134,8 @@ public class UserServiceImpl implements UserService {
                 .bio(user.getBio())
                 .role(user.getRole())
                 .status(user.getStatus())
-                .emailVerified(user.getEmailVerified() != null ? user.getEmailVerified() : false)
-                .accountSetupComplete(user.getAccountSetupComplete() != null ? user.getAccountSetupComplete() : false)
+                .emailVerified(user.getEmailVerified())
+                .accountSetupComplete(user.getAccountSetupComplete())
                 .pinSet(user.isPinSet())
                 .dateOfBirth(user.getDateOfBirth())
                 .profilePictureUrl(user.getProfilePictureUrl())
@@ -147,6 +156,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getPublicUserResponse(User user) {
+        log.debug("Building public user response for user ID: {}", user.getId());
         UserResponse fullResponse = getUserResponse(user);
         return UserResponse.createPublicResponse(fullResponse);
     }
@@ -154,6 +164,8 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> getUserDetails(User user) {
+        log.debug("Building user details for user ID: {}", user.getId());
+
         List<String> authorityNames = getUserAuthorities(user).stream()
                 .map(Authority::getName)
                 .collect(Collectors.toList());
@@ -168,8 +180,8 @@ public class UserServiceImpl implements UserService {
         details.put("bio", user.getBio());
         details.put("role", user.getRole());
         details.put("status", user.getStatus());
-        details.put("emailVerified", user.getEmailVerified() != null ? user.getEmailVerified() : false);
-        details.put("accountSetupComplete", user.getAccountSetupComplete() != null ? user.getAccountSetupComplete() : false);
+        details.put("emailVerified", user.getEmailVerified());
+        details.put("accountSetupComplete", user.getAccountSetupComplete());
         details.put("pinSet", user.isPinSet());
         details.put("dateOfBirth", user.getDateOfBirth());
         details.put("profilePictureUrl", user.getProfilePictureUrl());
@@ -179,7 +191,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User updateUserProfile(User currentUser, UpdateUserProfileRequest request) {
-        log.info("Updating profile for user: {}", currentUser.getEmail());
+        log.info("Starting profile update for user ID: {}", currentUser.getId());
 
         User user = getUserById(currentUser.getId());
 
@@ -205,15 +217,15 @@ public class UserServiceImpl implements UserService {
         }
 
         User savedUser = userRepository.save(user);
-        log.info("Profile updated successfully for user: {}", user.getEmail());
+        log.info("Profile updated successfully for user ID: {}", user.getId());
         return savedUser;
     }
 
     @Override
     public void setupUserPin(User user, String pin) {
-        log.info("Setting up PIN for user: {}", user.getEmail());
+        log.info("Starting PIN setup for user ID: {}", user.getId());
 
-        if (user.getEmailVerified() == null || !user.getEmailVerified()) {
+        if (!user.getEmailVerified()) {
             throw new BadRequestException("Email must be verified before setting up PIN");
         }
 
@@ -224,11 +236,13 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
         emailService.sendPinSetupConfirmation(user.getEmail(), user.getFirstName());
 
-        log.info("PIN setup completed for user: {}", user.getEmail());
+        log.info("PIN setup completed successfully for user ID: {}", user.getId());
     }
 
     @Override
     public boolean validateUserPin(String email, String pin) {
+        log.info("Starting PIN validation for user: {}", email);
+
         User user = getUserByEmail(email);
 
         if (!user.isPinSet()) {
@@ -255,27 +269,38 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void verifyUserEmail(String email) {
+        log.info("Starting email verification for user: {}", email);
+
         User user = getUserByEmail(email);
         user.verifyEmail();
         userRepository.save(user);
-        log.info("Email verified for user: {}", email);
+
+        log.info("Email verified successfully for user: {}", email);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<User> getUsersByRole(UserRole role) {
-        return userRepository.findByRole(role);
+        log.info("Retrieving users by role: {}", role);
+        List<User> users = userRepository.findByRole(role);
+        log.info("Found {} users with role: {}", users.size(), role);
+        return users;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<User> getActiveUsersByRole(UserRole role, int page, int size) {
+        log.info("Retrieving active users by role: {} (page: {}, size: {})", role, page, size);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdOn").descending());
-        return userRepository.findByRoleAndEmailVerifiedTrue(role, pageable);
+        Page<User> users = userRepository.findByRoleAndEmailVerifiedTrue(role, pageable);
+        log.info("Found {} active users with role: {}", users.getTotalElements(), role);
+        return users;
     }
 
     @Override
     public void assignAuthoritiesToUser(String email, List<String> authorityNames) {
+        log.info("Starting authority assignment for user: {} - authorities: {}", email, authorityNames);
+
         User user = getUserByEmail(email);
         List<Authority> authorities = authorityRepository.findAllByNameIn(authorityNames);
 
@@ -288,11 +313,13 @@ public class UserServiceImpl implements UserService {
         user.setAuthorities(currentAuthorities);
         userRepository.save(user);
 
-        log.info("Authorities {} assigned to user: {}", authorityNames, email);
+        log.info("Authorities {} assigned successfully to user: {}", authorityNames, email);
     }
 
     @Override
     public void removeAuthoritiesFromUser(String email, List<String> authorityNames) {
+        log.info("Starting authority removal for user: {} - authorities: {}", email, authorityNames);
+
         User user = getUserByEmail(email);
         List<Authority> authoritiesToRemove = authorityRepository.findAllByNameIn(authorityNames);
 
@@ -301,11 +328,13 @@ public class UserServiceImpl implements UserService {
         user.setAuthorities(currentAuthorities);
         userRepository.save(user);
 
-        log.info("Authorities {} removed from user: {}", authorityNames, email);
+        log.info("Authorities {} removed successfully from user: {}", authorityNames, email);
     }
 
     @Override
     public void validateUsernameChange(User user, String newUsername) {
+        log.info("Validating username change for user ID: {} to username: {}", user.getId(), newUsername);
+
         if (user.isAdmin()) {
             throw new BadRequestException("Admins cannot change their username");
         }
@@ -342,20 +371,24 @@ public class UserServiceImpl implements UserService {
         if (!validation.isValid()) {
             throw new BadRequestException(validation.getErrorMessage());
         }
+
+        log.info("Username validation passed for user ID: {}", user.getId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public boolean isUsernameAvailable(String username, Long excludeUserId) {
+        log.debug("Checking username availability: {} (excluding user ID: {})", username, excludeUserId);
         UsernameUtil.ValidationResult validation =
                 usernameUtil.validateUsername(username, excludeUserId);
         return validation.isValid();
     }
 
-    // Private helper methods
+
+    // HELPERS
     private void handleUsernameUpdate(User user, String newUsername) {
         user.updateUsername(newUsername);
-        log.info("Username updated for user: {} to: {}", user.getEmail(), newUsername);
+        log.info("Username updated for user ID: {} to: {}", user.getId(), newUsername);
     }
 
     private List<Authority> getUserAuthorities(User user) {

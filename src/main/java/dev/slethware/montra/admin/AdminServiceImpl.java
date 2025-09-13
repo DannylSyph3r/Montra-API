@@ -41,26 +41,23 @@ public class AdminServiceImpl implements AdminService {
     private final AdminInvitationRepository adminInvitationRepository;
     private final UserRepository userRepository;
     private final AuthorityRepository authorityRepository;
-    private final UserService userService;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     public ApiResponseWrapper<Void> inviteAdmin(AdminInvitationRequest request) {
-        log.info("Inviting admin with email: {}", request.getEmail());
+        log.info("Starting admin invitation for email: {}", request.getEmail());
 
-        // Check if user already exists
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("User with this email already exists");
         }
 
-        // Check if invitation already exists
         if (adminInvitationRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Invitation already sent to this email");
         }
 
-        // Get current user (super admin)
+        // Get current user (should be super admin)
         User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         // Generate temporary password
@@ -73,21 +70,20 @@ public class AdminServiceImpl implements AdminService {
                 .lastName(request.getLastName())
                 .tempPassword(passwordEncoder.encode(tempPassword))
                 .invitedBy(currentUser)
-                .expiryDate(LocalDateTime.now().plusDays(7)) // 7 days to accept
+                .expiryDate(LocalDateTime.now().plusDays(3)) // 3 days to accept
                 .build();
 
         adminInvitationRepository.save(invitation);
 
-        // Send invitation email
         emailService.sendAdminInvitation(request.getEmail(), tempPassword);
 
-        log.info("Admin invitation sent successfully to: {}", request.getEmail());
+        log.info("Admin invitation completed successfully for email: {}", request.getEmail());
         return ApiResponseUtil.successful("Admin invitation sent successfully", null);
     }
 
     @Override
     public ApiResponseWrapper<Void> acceptAdminInvitation(String email, String tempPassword) {
-        log.info("Processing admin invitation acceptance for: {}", email);
+        log.info("Starting admin invitation acceptance for email: {}", email);
 
         AdminInvitation invitation = adminInvitationRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
@@ -127,31 +123,42 @@ public class AdminServiceImpl implements AdminService {
         invitation.accept(savedUser);
         adminInvitationRepository.save(invitation);
 
-        log.info("Admin invitation accepted successfully for: {}", email);
+        log.info("Admin invitation acceptance completed successfully for email: {}", email);
         return ApiResponseUtil.successful("Admin invitation accepted successfully", null);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AdminResponse> getAllAdmins() {
+        log.info("Retrieving all admins");
+
         List<User> admins = userRepository.findByRoles(List.of(UserRole.ADMIN, UserRole.SUPER_ADMIN));
-        return admins.stream()
+        List<AdminResponse> responses = admins.stream()
                 .map(this::convertToAdminResponse)
                 .collect(Collectors.toList());
+
+        log.info("Retrieved {} admins", responses.size());
+        return responses;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<AdminResponse> getAdminsPaginated(int page, int size) {
+        log.info("Retrieving paginated admins (page: {}, size: {})", page, size);
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdOn").descending());
         Page<User> adminsPage = userRepository.findByRoleAndEmailVerifiedTrue(UserRole.ADMIN, pageable);
 
-        return adminsPage.map(this::convertToAdminResponse);
+        Page<AdminResponse> responses = adminsPage.map(this::convertToAdminResponse);
+        log.info("Retrieved {} total admins in paginated result", responses.getTotalElements());
+        return responses;
     }
 
     @Override
     @Transactional(readOnly = true)
     public AdminResponse getAdminById(Long id) {
+        log.info("Retrieving admin by ID: {}", id);
+
         User admin = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
 
@@ -159,12 +166,14 @@ public class AdminServiceImpl implements AdminService {
             throw new BadRequestException("User is not an admin");
         }
 
-        return convertToAdminResponse(admin);
+        AdminResponse response = convertToAdminResponse(admin);
+        log.info("Retrieved admin with ID: {}", id);
+        return response;
     }
 
     @Override
     public ApiResponseWrapper<Void> updateAdminAuthorities(String email, List<String> authorities) {
-        log.info("Updating authorities for admin: {}", email);
+        log.info("Starting authority update for admin: {} - authorities: {}", email, authorities);
 
         User admin = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
@@ -186,13 +195,13 @@ public class AdminServiceImpl implements AdminService {
         admin.setAuthorities(authorityEntities);
         userRepository.save(admin);
 
-        log.info("Authorities updated successfully for admin: {}", email);
+        log.info("Authority update completed successfully for admin: {}", email);
         return ApiResponseUtil.successful("Admin authorities updated successfully", null);
     }
 
     @Override
     public ApiResponseWrapper<Void> deactivateAdmin(String email) {
-        log.info("Deactivating admin: {}", email);
+        log.info("Starting admin deactivation for email: {}", email);
 
         User admin = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
@@ -208,13 +217,13 @@ public class AdminServiceImpl implements AdminService {
         admin.setEnabled(false);
         userRepository.save(admin);
 
-        log.info("Admin deactivated successfully: {}", email);
+        log.info("Admin deactivation completed successfully for email: {}", email);
         return ApiResponseUtil.successful("Admin deactivated successfully", null);
     }
 
     @Override
     public ApiResponseWrapper<Void> reactivateAdmin(String email) {
-        log.info("Reactivating admin: {}", email);
+        log.info("Starting admin reactivation for email: {}", email);
 
         User admin = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
@@ -226,14 +235,15 @@ public class AdminServiceImpl implements AdminService {
         admin.setEnabled(true);
         userRepository.save(admin);
 
-        log.info("Admin reactivated successfully: {}", email);
+        log.info("Admin reactivation completed successfully for email: {}", email);
         return ApiResponseUtil.successful("Admin reactivated successfully", null);
     }
 
     @Override
     public void cleanupExpiredInvitations() {
-        log.info("Cleaning up expired admin invitations");
+        log.info("Starting cleanup of expired admin invitations");
         adminInvitationRepository.deleteExpiredInvitations(LocalDateTime.now());
+        log.info("Expired admin invitations cleanup completed");
     }
 
     private AdminResponse convertToAdminResponse(User admin) {
@@ -256,7 +266,7 @@ public class AdminServiceImpl implements AdminService {
                 .firstName(admin.getFirstName())
                 .lastName(admin.getLastName())
                 .role(admin.getRole())
-                .emailVerified(admin.isEmailVerified())
+                .emailVerified(admin.getEmailVerified())
                 .enabled(admin.isEnabled())
                 .authorities(authorityNames)
                 .createdOn(admin.getCreatedOn())
