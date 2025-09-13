@@ -1,4 +1,4 @@
-package dev.slethware.montra.controller;
+package dev.slethware.montra.controllers;
 
 import dev.slethware.montra.shared.ApiResponseWrapper;
 import dev.slethware.montra.shared.util.ApiResponseUtil;

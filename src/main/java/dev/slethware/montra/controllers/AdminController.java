@@ -1,4 +1,4 @@
-package dev.slethware.montra.controller;
+package dev.slethware.montra.controllers;
 
 import dev.slethware.montra.admin.AdminService;
 import dev.slethware.montra.admin.dto.AdminInvitationRequest;
