@@ -5,6 +5,7 @@ import dev.slethware.montra.user.UserRepository;
 import dev.slethware.montra.user.model.Authority;
 import dev.slethware.montra.user.model.User;
 import dev.slethware.montra.user.model.UserRole;
+import dev.slethware.montra.user.model.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Profile("dev")
@@ -70,14 +72,21 @@ public class DataSeeder implements CommandLineRunner {
                     .email(adminEmail)
                     .firstName("Admin")
                     .lastName("User")
+                    .username(adminEmail)
                     .passwordHash(passwordEncoder.encode(adminPassword))
                     .role(UserRole.SUPER_ADMIN)
+                    .status(UserStatus.ACCOUNT_SETUP_COMPLETE)
                     .emailVerified(true)
                     .enabled(true)
                     .accountNonLocked(true)
                     .accountNonExpired(true)
                     .credentialsNonExpired(true)
                     .accountSetupComplete(true)
+                    .usernameCustomized(false)
+                    .usernameChangeCount(0)
+                    .usernameChangesThisYear(0)
+                    .usernameYearResetDate(LocalDate.now())
+                    .pinAttempts(0)
                     .build();
 
             // Assign super admin role
