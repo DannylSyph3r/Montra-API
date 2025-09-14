@@ -10,47 +10,48 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional
 public class AuditLogServiceImpl implements AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
 
-    @Async
     @Override
+    @Async
     public void log(Long entityId, String entityName, AuditLogType auditLogType, String logDescription, User user) {
-        try {
-            String userEmail = (user != null) ? user.getEmail() : "SYSTEM";
+        String userEmail = (user != null) ? user.getEmail() : "SYSTEM";
 
-            AuditLog auditLog = AuditLog.builder()
-                    .entityId(entityId).entityName(entityName)
-                    .logDescription(logDescription).auditLogType(auditLogType)
-                    .userEmail(userEmail).build();
+        AuditLog auditLog = AuditLog.builder()
+                .entityId(entityId)
+                .entityName(entityName)
+                .auditLogType(auditLogType)
+                .logDescription(logDescription)
+                .userEmail(userEmail)
+                .build();
 
-            auditLogRepository.save(auditLog);
-        } catch (Exception e) {
-            log.error("Failed to create audit log: {}", e.getMessage());
-        }
+        auditLogRepository.save(auditLog);
+        log.debug("Audit log created for entity {} with ID {}", entityName, entityId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<AuditLog> getAuditLogs(User currentUser, Long entityId, String entityName,
                                        AuditLogType auditLogType, String userEmail,
                                        LocalDateTime fromDate, LocalDateTime toDate,
                                        int page, int size) {
 
-        // Force regular users to only see their own logs
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("createdOn").descending());
+
         if (!currentUser.isAdmin()) {
             userEmail = currentUser.getEmail();
         }
 
-        PageRequest pageRequest = PageRequest.of(page, size, Sort.by("createdOn").descending());
-
-        // Route to appropriate repository method based on filters
         if (userEmail != null && fromDate != null && toDate != null) {
             return auditLogRepository.findByUserEmailAndDateRange(userEmail, fromDate, toDate, pageRequest);
         }
@@ -71,7 +72,7 @@ public class AuditLogServiceImpl implements AuditLogService {
             return auditLogRepository.findByUserEmail(userEmail, pageRequest);
         }
 
-        // Default: get all for admin, user's own for regular users
+        // Default: all logs for admin, user's own logs for regular users
         if (currentUser.isAdmin()) {
             return auditLogRepository.findAll(pageRequest);
         } else {
@@ -83,5 +84,6 @@ public class AuditLogServiceImpl implements AuditLogService {
     public void cleanupOldAuditLogs(int daysToKeep) {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(daysToKeep);
         auditLogRepository.deleteOldAuditLogs(cutoffDate);
+        log.info("Cleaned up audit logs older than {} days", daysToKeep);
     }
 }
